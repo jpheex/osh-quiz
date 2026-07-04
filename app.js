@@ -1,16 +1,13 @@
+import { isNarrationSupported, stopNarration, speakText, speakCaseIntro, primeNarration } from "./narration.js?v=20260704p";
 import {
-  MULTIPLE_CHOICE_POOL,
-  MULTIPLE_SELECT_POOL,
-  NUMERIC_MC_POOL,
-  NUMERIC_MS_POOL,
-  DISASTER2026_MC_POOL,
-  DISASTER2026_MS_POOL,
-  LAW2026_EXTRA_MC_POOL,
-  LAW2026_EXTRA_MS_POOL,
-} from "./questions.js?v=20260704l";
-import { resolveSource } from "./sources.js?v=20260704l";
-import { resolveCases } from "./cases.js?v=20260704l";
-import { isNarrationSupported, stopNarration, speakText, speakCaseIntro, primeNarration } from "./narration.js?v=20260704l";
+  formatUserId,
+  getUserId,
+  mergeProgress,
+  pullFromCloud,
+  pushToCloud,
+  resetCloud,
+} from "./sync-client.js?v=20260704p";
+import { fetchExamQuestions, fetchPoolMeta } from "./exam-client.js?v=20260704p";
 
 // 甲級學科測驗：60 單選（1 分）＋ 20 複選（2 分）＝ 100 分，60 分及格
 const PASS_SCORE = 60;
@@ -20,33 +17,11 @@ const MS_COUNT = 20;
 const MC_POINTS = 1;
 const MS_POINTS = 2;
 const TOTAL_QUESTIONS = MC_COUNT + MS_COUNT;
-const COMMON_MC_COUNT = 16;
 const DEFAULT_GOAL = 10;
-const HARD_RATIO = 0.85;
-const TRAP_RATIO = 0.45;
-const LAW2026_RATIO = 0.42;
-const DISASTER2026_RATIO = 0.35;
-const NUMERIC_RATIO = 0.4;
-const EASY_MAX_RATIO = 0.08;
-const PENALTY_MAX_PER_EXAM = 2;
-const FINE_AMOUNT_MAX_PER_EXAM = 1;
 
 const STORAGE_KEY = "oshManagerQuizProgress_v1";
 const SESSION_STORAGE_KEY = "oshManagerQuizSession_v2";
-const APP_VERSION = "20260704l";
-
-const MC_SOURCE_POOL = [
-  ...MULTIPLE_CHOICE_POOL,
-  ...NUMERIC_MC_POOL,
-  ...DISASTER2026_MC_POOL,
-  ...LAW2026_EXTRA_MC_POOL,
-];
-const MS_SOURCE_POOL = [
-  ...MULTIPLE_SELECT_POOL,
-  ...NUMERIC_MS_POOL,
-  ...DISASTER2026_MS_POOL,
-  ...LAW2026_EXTRA_MS_POOL,
-];
+const APP_VERSION = "20260704p";
 
 // 每個階段的「最短停留時間」（毫秒）。實際停留＝語音播完 與 此值 取較長者，
 // 確保即使語音很快結束或不支援，畫面也會停留夠久讓使用者看清楚。
@@ -75,6 +50,8 @@ const el = {
   resetBtn: document.querySelector("#resetBtn"),
   refreshBtn: document.querySelector("#refreshBtn"),
   appVersion: document.querySelector("#appVersion"),
+  syncStatus: document.querySelector("#syncStatus"),
+  syncUserId: document.querySelector("#syncUserId"),
   roundLabel: document.querySelector("#roundLabel"),
   questionMeta: document.querySelector("#questionMeta"),
   liveCorrect: document.querySelector("#liveCorrect"),
@@ -104,6 +81,9 @@ let state = loadState();
 let session = null;
 let recapToken = 0;
 let recapResolve = null;
+let cloudSyncTimer = null;
+let cloudSyncPromise = null;
+let poolMeta = { poolTotal: null, remainCount: null };
 
 function defaultState() {
   return {
@@ -113,7 +93,66 @@ function defaultState() {
     history: [],
     completed: false,
     usedQuestionIds: [],
+    updatedAt: null,
   };
+}
+
+function touchStateUpdatedAt() {
+  state.updatedAt = new Date().toISOString();
+}
+
+function updateSyncUI(statusText, detailText) {
+  if (el.syncStatus) el.syncStatus.textContent = statusText;
+  if (el.syncUserId) el.syncUserId.textContent = detailText || `同步 ID：${formatUserId(getUserId())}`;
+}
+
+function scheduleCloudSync() {
+  if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(() => {
+    cloudSyncPromise = syncToCloud().finally(() => {
+      cloudSyncPromise = null;
+    });
+  }, 500);
+}
+
+async function syncToCloud() {
+  try {
+    updateSyncUI("同步中…");
+    await pushToCloud({
+      progress: state,
+      session: session ? { ...session, recapOpen: false } : null,
+      appVersion: APP_VERSION,
+    });
+    updateSyncUI("已同步至 D1");
+  } catch {
+    updateSyncUI("離線模式（本機暫存）");
+  }
+}
+
+async function initCloudSync() {
+  updateSyncUI("連線 D1 中…", `同步 ID：${formatUserId(getUserId())}`);
+  try {
+    const remote = await pullFromCloud();
+    state = mergeProgress(state, remote.progress);
+    if (remote.session) {
+      const restored = loadSavedSessionFromData(remote.session);
+      if (restored) session = restored;
+    }
+    touchStateUpdatedAt();
+    saveState();
+    if (session) saveSessionSnapshot();
+    const hadRemote = Boolean(remote.progress || remote.session);
+    if (hadRemote) {
+      await pushToCloud({
+        progress: state,
+        session: session ? { ...session, recapOpen: false } : null,
+        appVersion: APP_VERSION,
+      });
+    }
+    updateSyncUI("已同步至 D1");
+  } catch {
+    updateSyncUI("離線模式（本機暫存）");
+  }
 }
 
 function loadState() {
@@ -129,9 +168,21 @@ function loadState() {
 
 function saveState() {
   try {
+    touchStateUpdatedAt();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
     /* 儲存空間不足等情況 */
+  }
+}
+
+function loadSavedSessionFromData(data) {
+  try {
+    if (!Array.isArray(data?.questions) || data.questions.length !== TOTAL_QUESTIONS) return null;
+    if (!Array.isArray(data.answers) || data.answers.length !== TOTAL_QUESTIONS) return null;
+    if (!Array.isArray(data.revealed) || data.revealed.length !== TOTAL_QUESTIONS) return null;
+    return { ...data, recapOpen: false };
+  } catch {
+    return null;
   }
 }
 
@@ -139,11 +190,7 @@ function loadSavedSession() {
   try {
     const raw = localStorage.getItem(SESSION_STORAGE_KEY);
     if (!raw) return null;
-    const data = JSON.parse(raw);
-    if (!Array.isArray(data?.questions) || data.questions.length !== TOTAL_QUESTIONS) return null;
-    if (!Array.isArray(data.answers) || data.answers.length !== TOTAL_QUESTIONS) return null;
-    if (!Array.isArray(data.revealed) || data.revealed.length !== TOTAL_QUESTIONS) return null;
-    return { ...data, recapOpen: false };
+    return loadSavedSessionFromData(JSON.parse(raw));
   } catch {
     return null;
   }
@@ -171,216 +218,22 @@ function clearSavedSession() {
 function persistAll() {
   saveState();
   saveSessionSnapshot();
+  scheduleCloudSync();
 }
 
-function shuffle(array) {
-  const copy = [...array];
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
+async function refreshPoolMeta() {
+  try {
+    poolMeta = await fetchPoolMeta(state.usedQuestionIds || []);
+    if (poolMeta.mode === "local") {
+      updateSyncUI("離線模式（本機暫存）", `題庫 ${poolMeta.poolTotal ?? "—"} 題｜同步 ID：${formatUserId(getUserId())}`);
+    }
+  } catch {
+    poolMeta = { poolTotal: null, remainCount: null };
   }
-  return copy;
-}
-
-function questionId(q) {
-  return q.id || `${q.topic}::${q.text}`;
-}
-
-function isChallenging(q) {
-  return Boolean(q.hard || q.trap || q.law2026 || q.numeric || q.disaster2026);
-}
-
-function isFineAmountQuestion(q) {
-  if (q.fineAmount === false) return false;
-  if (q.fineAmount) return true;
-  const blob = `${q.text} ${q.explain}`;
-  if (/(\d+\s*萬元|\d+\s*萬(?!\分))/.test(blob)) return true;
-  if (/最高.*罰鍰|罰鍰.*[？?]|罰鍰.*多少|罰鍰.*幾/.test(blob)) return true;
-  if (
-    /罰鍰|罰金|罰則/.test(q.text) &&
-    (q.options || []).some((opt) => /\d+\s*萬/.test(opt)) &&
-    !/以下皆是|以上皆是/.test(q.text)
-  ) {
-    return true;
-  }
-  return false;
-}
-
-function isPenaltyQuestion(q) {
-  if (q.penalty === false) return false;
-  if (q.penalty || q.fineAmount) return true;
-  if (isFineAmountQuestion(q)) return true;
-  const blob = `${q.text} ${q.explain}`;
-  if (/不利處分|不得為不利處分|處分當事勞工|解僱/.test(blob)) return false;
-  return /罰則|罰鍰|罰金|刑事罰|處分期日|加重.*罰|僅提高罰鍰|僅.*罰鍰|擴大.*罰|開罰/.test(blob);
-}
-
-function createExamStats() {
-  return { penalty: 0, fineAmount: 0 };
-}
-
-function withinPenaltyBudget(q, examStats) {
-  if (isFineAmountQuestion(q) && examStats.fineAmount >= FINE_AMOUNT_MAX_PER_EXAM) return false;
-  if (isPenaltyQuestion(q) && examStats.penalty >= PENALTY_MAX_PER_EXAM) return false;
-  return true;
-}
-
-function recordPenaltyPick(q, examStats) {
-  if (isFineAmountQuestion(q)) examStats.fineAmount += 1;
-  if (isPenaltyQuestion(q)) examStats.penalty += 1;
-}
-
-function totalPoolSize() {
-  return new Set([...MC_SOURCE_POOL, ...MS_SOURCE_POOL].map(questionId)).size;
-}
-
-function countAvailable(pool, usedIdSet) {
-  return new Set(pool.filter((q) => !usedIdSet.has(questionId(q))).map(questionId)).size;
-}
-
-function ensureQuestionBank(usedIdSet) {
-  const mcAvail = countAvailable(MC_SOURCE_POOL, usedIdSet);
-  const msAvail = countAvailable(MS_SOURCE_POOL, usedIdSet);
-  if (mcAvail >= MC_COUNT && msAvail >= MS_COUNT) {
-    return { usedIdSet, reset: false };
-  }
-  return { usedIdSet: new Set(), reset: true };
 }
 
 function markQuestionsUsed(ids) {
   state.usedQuestionIds = [...new Set([...(state.usedQuestionIds || []), ...ids])];
-}
-
-function enrichQuestion(q) {
-  const id = questionId(q);
-  return {
-    ...q,
-    id,
-    source: resolveSource(q),
-    cases: resolveCases(q),
-  };
-}
-
-function pickUniqueFromPool(pool, count, pickedSet) {
-  const result = [];
-  for (const q of shuffle(pool)) {
-    if (result.length >= count) break;
-    if (pickedSet.has(q)) continue;
-    result.push(q);
-    pickedSet.add(q);
-  }
-  return result;
-}
-
-function sampleFromPool(pool, count, pickedSet, usedIdSet, examStats) {
-  const available = pool.filter(
-    (q) => !usedIdSet.has(questionId(q)) && withinPenaltyBudget(q, examStats)
-  );
-  const picked = [];
-
-  const pickFrom = (subset, n) => {
-    if (n <= 0 || picked.length >= count) return;
-    const candidates = subset.filter(
-      (q) => !pickedSet.has(q) && withinPenaltyBudget(q, examStats)
-    );
-    const got = pickUniqueFromPool(candidates, n, pickedSet);
-    got.forEach((q) => recordPenaltyPick(q, examStats));
-    picked.push(...got);
-  };
-
-  pickFrom(
-    available.filter((q) => q.law2026 && !isPenaltyQuestion(q)),
-    Math.round(count * LAW2026_RATIO)
-  );
-  pickFrom(
-    available.filter((q) => q.law2026 && isPenaltyQuestion(q)),
-    Math.max(0, Math.round(count * LAW2026_RATIO) - picked.filter((q) => q.law2026).length)
-  );
-  pickFrom(
-    available.filter((q) => q.disaster2026 && !isPenaltyQuestion(q)),
-    Math.round(count * DISASTER2026_RATIO)
-  );
-  pickFrom(
-    available.filter((q) => q.disaster2026 && isPenaltyQuestion(q)),
-    Math.max(
-      0,
-      Math.round(count * DISASTER2026_RATIO) - picked.filter((q) => q.disaster2026).length
-    )
-  );
-  pickFrom(
-    available.filter((q) => q.numeric && !isFineAmountQuestion(q)),
-    Math.round(count * NUMERIC_RATIO)
-  );
-  pickFrom(
-    available.filter((q) => q.trap && !isPenaltyQuestion(q)),
-    Math.round(count * TRAP_RATIO)
-  );
-  pickFrom(
-    available.filter((q) => q.hard && !isPenaltyQuestion(q)),
-    Math.round(count * HARD_RATIO)
-  );
-
-  if (picked.length < count) {
-    pickFrom(
-      available.filter((q) => isChallenging(q) && !isPenaltyQuestion(q)),
-      count - picked.length
-    );
-  }
-
-  const easyMax = Math.round(count * EASY_MAX_RATIO);
-  const easyInPicked = picked.filter((q) => !isChallenging(q)).length;
-  const easyAllow = Math.max(0, easyMax - easyInPicked);
-  if (picked.length < count && easyAllow > 0) {
-    pickFrom(
-      available.filter((q) => !isChallenging(q) && !isPenaltyQuestion(q)),
-      Math.min(count - picked.length, easyAllow)
-    );
-  }
-
-  if (picked.length < count) {
-    pickFrom(
-      available.filter((q) => !isPenaltyQuestion(q)),
-      count - picked.length
-    );
-  }
-
-  if (picked.length < count) {
-    pickFrom(available, count - picked.length);
-  }
-
-  return shuffle(picked.slice(0, count));
-}
-
-function sampleQuestions(usedIdSet) {
-  const pickedSet = new Set();
-  const examStats = createExamStats();
-  const commonPool = MC_SOURCE_POOL.filter((q) => q.topic === "共同科目");
-  const profPool = MC_SOURCE_POOL.filter((q) => q.topic !== "共同科目");
-  const commonN = Math.min(COMMON_MC_COUNT, commonPool.length);
-  const commonPicked = sampleFromPool(commonPool, commonN, pickedSet, usedIdSet, examStats);
-  const profPicked = sampleFromPool(
-    profPool,
-    MC_COUNT - commonPicked.length,
-    pickedSet,
-    usedIdSet,
-    examStats
-  );
-  const mcRaw = shuffle([...commonPicked, ...profPicked]);
-
-  const msRaw = sampleFromPool(MS_SOURCE_POOL, MS_COUNT, pickedSet, usedIdSet, examStats);
-
-  const mc = mcRaw.map((q, index) => ({
-    ...enrichQuestion(q),
-    kind: "mc",
-    no: index + 1,
-  }));
-  const ms = msRaw.map((q, index) => ({
-    ...enrichQuestion(q),
-    kind: "ms",
-    no: MC_COUNT + index + 1,
-  }));
-  // 學科測驗順序：先 60 單選，再 20 複選
-  return [...mc, ...ms];
 }
 
 function delay(ms) {
@@ -440,12 +293,14 @@ function renderExamFormat() {
   const msScore = MS_COUNT * MS_POINTS;
   const mcScore = MC_COUNT * MC_POINTS;
   el.examFormat.innerHTML = `
-    <h3 class="exam-format-title">本輪題型配額（固定，與官方學科相同）</h3>
+    <h3 class="exam-format-title">本輪題型配額（對齊 22000 甲安學科）</h3>
     <ul class="exam-format-list">
-      <li><strong>單選 ${MC_COUNT} 題</strong>｜第 1～${MC_COUNT} 題｜每題 ${MC_POINTS} 分｜小計 ${mcScore} 分（${mcScore}%）</li>
-      <li><strong>複選 ${MS_COUNT} 題</strong>｜第 ${MC_COUNT + 1}～${TOTAL_QUESTIONS} 題｜每題 ${MS_POINTS} 分（須全對）｜小計 ${msScore} 分（${msScore}%）</li>
+      <li><strong>共同科目 90006～90009</strong>｜16 題（各 3 單選 + 1 複選）｜16 分</li>
+      <li><strong>專業科目 22000</strong>｜64 題（48 單選 + 16 複選）｜84 分</li>
+      <li><strong>單選 ${MC_COUNT} 題</strong>｜每題 ${MC_POINTS} 分｜小計 ${mcScore} 分</li>
+      <li><strong>複選 ${MS_COUNT} 題</strong>｜每題 ${MS_POINTS} 分（須全對）｜小計 ${msScore} 分</li>
     </ul>
-    <p class="hint exam-format-note">複選占<strong>題數 ${Math.round((MS_COUNT / TOTAL_QUESTIONS) * 100)}%</strong>、占<strong>分數 ${msScore}%</strong>。修法／職災等加權是在「60 題單選池」與「20 題複選池」<strong>各自</strong>抽題，不是把複選算成某一個百分比。</p>
+    <p class="hint exam-format-note">命題依據：勞動部技能檢定中心題庫（22000 甲安、90006～90009 共同科目）。115 年修法／新增法令及重大職災衍生法令加強出題。每輪向伺服器抽 80 題，已出題 ID 記錄於 D1／本機。</p>
   `;
 }
 
@@ -455,9 +310,8 @@ function renderDashboard() {
   el.passCount.textContent = String(state.passCount);
   el.attemptCount.textContent = String(state.attemptCount);
 
-  const poolTotal = totalPoolSize();
-  const usedCount = (state.usedQuestionIds || []).length;
-  const remainCount = Math.max(0, poolTotal - usedCount);
+  const poolTotal = poolMeta.poolTotal ?? "—";
+  const remainCount = poolMeta.remainCount ?? "—";
 
   const pct = Math.min(100, (state.passCount / state.goalPasses) * 100);
   el.progressFill.style.width = `${pct}%`;
@@ -488,7 +342,7 @@ function renderDashboard() {
     : `<p class="hint">尚無測驗紀錄</p>`;
 }
 
-function startSession() {
+async function startSession() {
   primeNarration();
   const saved = loadSavedSession();
   if (saved) {
@@ -505,24 +359,36 @@ function startSession() {
     clearSavedSession();
   }
 
-  state.attemptCount += 1;
+  const prevLabel = el.startBtn.textContent;
+  el.startBtn.disabled = true;
+  el.startBtn.textContent = "向伺服器抽題中…";
 
-  let usedIdSet = new Set(state.usedQuestionIds || []);
-  const bank = ensureQuestionBank(usedIdSet);
-  if (bank.reset) {
-    usedIdSet = bank.usedIdSet;
+  let examData;
+  try {
+    examData = await fetchExamQuestions(state.usedQuestionIds || []);
+  } catch (err) {
+    alert(`無法取得題目。\n\n${err.message || err}\n\n請確認網路正常，或重新整理頁面後再試。`);
+    el.startBtn.disabled = false;
+    el.startBtn.textContent = prevLabel;
+    return;
+  }
+
+  el.startBtn.disabled = false;
+  el.startBtn.textContent = prevLabel;
+
+  if (examData.resetBank) {
     state.usedQuestionIds = [];
     alert(
       "題庫可抽題目已不足一輪完整測驗，已自動重新循環。\n\n先前出過的題目紀錄已清除，避免無題可抽。"
     );
   }
 
-  const questions = sampleQuestions(usedIdSet);
-  markQuestionsUsed(questions.map((q) => q.id));
+  state.attemptCount += 1;
+  markQuestionsUsed(examData.questionIds || examData.questions.map((q) => q.id));
 
   session = {
     attemptNo: state.attemptCount,
-    questions,
+    questions: examData.questions,
     answers: Array(TOTAL_QUESTIONS).fill(null),
     revealed: Array(TOTAL_QUESTIONS).fill(false),
     index: 0,
@@ -530,6 +396,7 @@ function startSession() {
     recapOpen: false,
   };
   persistAll();
+  await refreshPoolMeta();
   showPanel("quiz");
   renderQuestion();
 }
@@ -1136,9 +1003,10 @@ function submitSession() {
   }
 
   const finished = session;
-  saveState();
-  clearSavedSession();
   session = null;
+  clearSavedSession();
+  saveState();
+  scheduleCloudSync();
   showResult(score, mcCorrect, msCorrect, passed, finished);
 }
 
@@ -1189,12 +1057,13 @@ function showResult(score, mcCorrect, msCorrect, passed, finishedSession) {
 }
 
 function resetAll() {
-  if (!confirm("確定重置所有練習進度？（含未完成測驗）")) return;
+  if (!confirm("確定重置所有練習進度？（含未完成測驗，雲端 D1 也會清空）")) return;
   finishRecap("close");
   state = defaultState();
   session = null;
   clearSavedSession();
   saveState();
+  resetCloud().catch(() => {});
   renderDashboard();
   showPanel("dashboard");
 }
@@ -1220,9 +1089,11 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") persistAll();
 });
 
-function bootApp() {
+async function bootApp() {
+  await initCloudSync();
+  await refreshPoolMeta();
   renderDashboard();
-  const saved = loadSavedSession();
+  const saved = session || loadSavedSession();
   if (saved) {
     session = saved;
     showPanel("quiz");

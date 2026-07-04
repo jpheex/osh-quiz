@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>甲級職安管理師｜記憶強化練習</title>
-    <link rel="stylesheet" href="styles.css?v=20260704l" />
-    <script type="module" src="app.js?v=20260704l"></script>
+    <link rel="stylesheet" href="styles.css?v=20260704p" />
+    <script type="module" src="app.js?v=20260704p"></script>
   </head>
   <body>
     <main class="app">
@@ -43,6 +43,10 @@
         <button id="startBtn" type="button" class="primary">開始新一輪學科測驗（80 題）</button>
         <button id="resetBtn" type="button" class="secondary">重置全部進度</button>
         <button id="refreshBtn" type="button" class="outline">讀取最新版（保留進度）</button>
+        <div id="syncBox" class="sync-box">
+          <p id="syncStatus" class="hint">雲端同步準備中…</p>
+          <p id="syncUserId" class="hint sync-user-id">同步 ID：—</p>
+        </div>
         <p id="appVersion" class="hint version-line">版本 —</p>
       </section>
 

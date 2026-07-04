@@ -3,3 +3,6 @@
 __pycache__/
 *.pyc
 vendor/
+.wrangler/
+node_modules/
+d1-seed/

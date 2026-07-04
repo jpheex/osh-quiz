@@ -1,0 +1,9 @@
+name = "osh-quiz"
+compatibility_date = "2024-09-01"
+pages_build_output_dir = "."
+
+[[d1_databases]]
+binding = "DB"
+database_name = "osh-quiz-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"

@@ -146,6 +146,21 @@ h1 {
   font-size: 0.82rem;
 }
 
+.sync-box {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px dashed var(--line);
+  background: #fff;
+}
+
+.sync-user-id {
+  margin-top: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
 .history {
   display: grid;
   gap: 8px;

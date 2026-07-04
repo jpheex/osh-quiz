@@ -2,11 +2,11 @@ import {
   ensureQuestionBank,
   poolStats,
   sampleQuestions,
-} from "./functions/lib/exam-engine.js";
+} from "./lib/exam-engine.js";
 
 const API_EXAM_START = "/api/exam/start";
 const API_META = "/api/meta";
-const BUNDLE_URL = "./data/questions-bundle.json?v=20260704p";
+const BUNDLE_URL = "./data/questions-bundle.json?v=20260704q";
 
 let cachedAll = null;
 
@@ -50,7 +50,7 @@ async function fetchLocalMeta(usedQuestionIds = []) {
   const stats = poolStats(all, new Set(usedQuestionIds.map(String)));
   return {
     ...stats,
-    contentVersion: "20260704p",
+    contentVersion: "20260704q",
     mcCount: all.filter((q) => q.kind === "mc").length,
     msCount: all.filter((q) => q.kind === "ms").length,
     mode: "local",

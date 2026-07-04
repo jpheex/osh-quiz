@@ -1,4 +1,4 @@
-import { isNarrationSupported, stopNarration, speakText, speakCaseIntro, primeNarration } from "./narration.js?v=20260704p";
+import { isNarrationSupported, stopNarration, speakText, speakCaseIntro, primeNarration } from "./narration.js?v=20260704q";
 import {
   formatUserId,
   getUserId,
@@ -6,8 +6,8 @@ import {
   pullFromCloud,
   pushToCloud,
   resetCloud,
-} from "./sync-client.js?v=20260704p";
-import { fetchExamQuestions, fetchPoolMeta } from "./exam-client.js?v=20260704p";
+} from "./sync-client.js?v=20260704q";
+import { fetchExamQuestions, fetchPoolMeta } from "./exam-client.js?v=20260704q";
 
 // 甲級學科測驗：60 單選（1 分）＋ 20 複選（2 分）＝ 100 分，60 分及格
 const PASS_SCORE = 60;
@@ -21,7 +21,7 @@ const DEFAULT_GOAL = 10;
 
 const STORAGE_KEY = "oshManagerQuizProgress_v1";
 const SESSION_STORAGE_KEY = "oshManagerQuizSession_v2";
-const APP_VERSION = "20260704p";
+const APP_VERSION = "20260704q";
 
 // 每個階段的「最短停留時間」（毫秒）。實際停留＝語音播完 與 此值 取較長者，
 // 確保即使語音很快結束或不支援，畫面也會停留夠久讓使用者看清楚。
@@ -106,6 +106,9 @@ function updateSyncUI(statusText, detailText) {
   if (el.syncUserId) el.syncUserId.textContent = detailText || `同步 ID：${formatUserId(getUserId())}`;
 }
 
+el.appVersion.textContent = `目前版本：${APP_VERSION}`;
+updateSyncUI("連線 D1 中…", `同步 ID：${formatUserId(getUserId())}`);
+
 function scheduleCloudSync() {
   if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
   cloudSyncTimer = setTimeout(() => {
@@ -123,9 +126,9 @@ async function syncToCloud() {
       session: session ? { ...session, recapOpen: false } : null,
       appVersion: APP_VERSION,
     });
-    updateSyncUI("已同步至 D1");
+    updateSyncUI("已同步至 D1", `同步 ID：${formatUserId(getUserId())}`);
   } catch {
-    updateSyncUI("離線模式（本機暫存）");
+    updateSyncUI("離線模式（本機暫存）", `同步 ID：${formatUserId(getUserId())}`);
   }
 }
 
@@ -149,9 +152,9 @@ async function initCloudSync() {
         appVersion: APP_VERSION,
       });
     }
-    updateSyncUI("已同步至 D1");
+    updateSyncUI("已同步至 D1", `同步 ID：${formatUserId(getUserId())}`);
   } catch {
-    updateSyncUI("離線模式（本機暫存）");
+    updateSyncUI("離線模式（本機暫存）", `同步 ID：${formatUserId(getUserId())}`);
   }
 }
 

@@ -1,0 +1,5 @@
+/lib/*.js
+  Content-Type: application/javascript; charset=utf-8
+
+/data/*.json
+  Content-Type: application/json; charset=utf-8

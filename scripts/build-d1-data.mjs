@@ -26,7 +26,7 @@ import { classifyQuestion } from "./official-taxonomy.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "d1-seed");
-const CONTENT_VERSION = "20260704o";
+const CONTENT_VERSION = "20260704s";
 
 const POOLS = [
   { pool: "common_90006", kind: "mc", items: COMMON_90006_MC },

@@ -21,7 +21,7 @@ const DEFAULT_GOAL = 10;
 
 const STORAGE_KEY = "oshManagerQuizProgress_v1";
 const SESSION_STORAGE_KEY = "oshManagerQuizSession_v2";
-const APP_VERSION = "20260704r";
+const APP_VERSION = "20260704s";
 
 // 每個階段的「最短停留時間」（毫秒）。實際停留＝語音播完 與 此值 取較長者，
 // 確保即使語音很快結束或不支援，畫面也會停留夠久讓使用者看清楚。
@@ -533,6 +533,13 @@ function renderRecapCompare(q, userAnswer, correct) {
   `;
 }
 
+function syncCaseImageFrame(wrap) {
+  const img = wrap?.querySelector(".case-photo");
+  const frame = wrap?.querySelector(".case-image-frame");
+  if (!img || !frame || !img.naturalWidth) return;
+  frame.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+}
+
 function renderRecapCaseSlide(q, caseItem, index, total) {
   const dots = Array.from({ length: total }, (_, i) => {
     const active = i === index ? "active" : "";
@@ -557,8 +564,10 @@ function renderRecapCaseSlide(q, caseItem, index, total) {
       <div class="case-slide">
         <div class="case-photo-wrap">
           <div class="case-zoom-layer">
-            <img class="case-photo" src="${caseItem.image}" alt="職業災害案例照片" loading="eager" />
-            ${boxes}
+            <div class="case-image-frame">
+              <img class="case-photo" src="${caseItem.image}" alt="職業災害案例照片" loading="eager" />
+              ${boxes}
+            </div>
           </div>
           <span class="case-badge">案例 ${index + 1} / ${total}</span>
           <div class="case-photo-fallback hidden">圖片載入失敗，請確認網路或重新整理</div>
@@ -576,8 +585,14 @@ function renderRecapCaseSlide(q, caseItem, index, total) {
     </div>
   `;
 
+  const photoWrap = el.recapStage.querySelector(".case-photo-wrap");
   const photoEl = el.recapStage.querySelector(".case-photo");
   const fallbackEl = el.recapStage.querySelector(".case-photo-fallback");
+  if (photoEl && photoWrap) {
+    const onReady = () => syncCaseImageFrame(photoWrap);
+    if (photoEl.complete) onReady();
+    else photoEl.addEventListener("load", onReady, { once: true });
+  }
   if (photoEl && fallbackEl) {
     photoEl.addEventListener("error", () => {
       photoEl.style.visibility = "hidden";

@@ -6,7 +6,7 @@ import {
 
 const API_EXAM_START = "/api/exam/start";
 const API_META = "/api/meta";
-const BUNDLE_URL = "./data/questions-bundle.json?v=20260704r";
+const BUNDLE_URL = "./data/questions-bundle.json?v=20260704s";
 
 let cachedAll = null;
 
@@ -50,7 +50,7 @@ async function fetchLocalMeta(usedQuestionIds = []) {
   const stats = poolStats(all, new Set(usedQuestionIds.map(String)));
   return {
     ...stats,
-    contentVersion: "20260704r",
+    contentVersion: "20260704s",
     mcCount: all.filter((q) => q.kind === "mc").length,
     msCount: all.filter((q) => q.kind === "ms").length,
     mode: "local",

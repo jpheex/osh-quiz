@@ -74,7 +74,29 @@ export PATH="$(dirname "$NODE"):$PATH"
 bash scripts/apply-seed.sh
 
 echo "部署 Cloudflare Pages + Functions…"
-"$NPX" --yes wrangler pages deploy . --project-name="$PROJECT_NAME" --commit-dirty=true
+DIST="$ROOT/pages-dist"
+rm -rf "$DIST"
+mkdir -p "$DIST"
+rsync -a \
+  --exclude='.git' \
+  --exclude='.tools' \
+  --exclude='vendor' \
+  --exclude='d1-seed' \
+  --exclude='.wrangler' \
+  --exclude='node_modules' \
+  --exclude='pages-dist' \
+  --exclude='.github' \
+  --exclude='scripts' \
+  --exclude='deploy-cloudflare.sh' \
+  --exclude='deploy.sh' \
+  --exclude='serve.py' \
+  --exclude='questions*.js' \
+  --exclude='cases.js' \
+  --exclude='sources.js' \
+  --exclude='case-photo-manifest.js' \
+  "$ROOT/" "$DIST/"
+"$NPX" --yes wrangler pages deploy "$DIST" --project-name="$PROJECT_NAME" --commit-dirty=true
+rm -rf "$DIST"
 
 echo ""
 echo "完成。請到 Cloudflare Dashboard → Workers & Pages → ${PROJECT_NAME}"

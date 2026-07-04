@@ -6,3 +6,4 @@ vendor/
 .wrangler/
 node_modules/
 d1-seed/
+pages-dist/

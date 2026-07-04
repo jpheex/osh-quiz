@@ -5,5 +5,5 @@ pages_build_output_dir = "."
 [[d1_databases]]
 binding = "DB"
 database_name = "osh-quiz-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "f7e3580f-f693-4802-a6df-169aca7fdaf4"
 migrations_dir = "migrations"

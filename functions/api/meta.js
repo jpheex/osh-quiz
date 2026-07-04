@@ -1,4 +1,4 @@
-import { poolStats } from "../../lib/exam-engine.js";
+import { poolStats } from "../lib/exam-engine.js";
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",

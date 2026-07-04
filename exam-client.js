@@ -3,10 +3,11 @@ import {
   poolStats,
   sampleQuestions,
 } from "./exam-engine.js";
+import { APP_VERSION } from "./version.js";
 
 const API_EXAM_START = "/api/exam/start";
 const API_META = "/api/meta";
-const BUNDLE_URL = "./data/questions-bundle.json?v=20260704s";
+const BUNDLE_URL = `./data/questions-bundle.json?v=${APP_VERSION}`;
 
 let cachedAll = null;
 
@@ -50,7 +51,7 @@ async function fetchLocalMeta(usedQuestionIds = []) {
   const stats = poolStats(all, new Set(usedQuestionIds.map(String)));
   return {
     ...stats,
-    contentVersion: "20260704s",
+    contentVersion: APP_VERSION,
     mcCount: all.filter((q) => q.kind === "mc").length,
     msCount: all.filter((q) => q.kind === "ms").length,
     mode: "local",

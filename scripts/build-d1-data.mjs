@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync } from "fs";
+import { writeFileSync, mkdirSync, readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { MULTIPLE_CHOICE_POOL } from "../questions.js";
@@ -23,10 +23,11 @@ import {
 import { resolveSource } from "../sources.js";
 import { enrichCases } from "./lib/enrich-cases.mjs";
 import { classifyQuestion } from "./official-taxonomy.mjs";
+import { APP_VERSION } from "../version.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "d1-seed");
-const CONTENT_VERSION = "20260704s";
+const CONTENT_VERSION = APP_VERSION;
 
 const POOLS = [
   { pool: "common_90006", kind: "mc", items: COMMON_90006_MC },
@@ -98,5 +99,17 @@ const DATA_OUT = join(ROOT, "data");
 mkdirSync(DATA_OUT, { recursive: true });
 writeFileSync(join(DATA_OUT, "questions-bundle.json"), JSON.stringify(bundle, null, 0));
 
+writeFileSync(
+  join(ROOT, "version.json"),
+  JSON.stringify({ appVersion: APP_VERSION, builtAt: new Date().toISOString() }, null, 2)
+);
+
+const indexPath = join(ROOT, "index.html");
+writeFileSync(
+  indexPath,
+  readFileSync(indexPath, "utf8").replace(/(\?v=)[^"']+/g, `$1${APP_VERSION}`)
+);
+
 console.log(`已產生 ${questions.length} 題 → d1-seed/bundle.json、data/questions-bundle.json`);
+console.log(`版本 ${APP_VERSION} → version.json、index.html`);
 console.log(summary);

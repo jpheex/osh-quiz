@@ -8,6 +8,7 @@ import {
   resetCloud,
 } from "./sync-client.js";
 import { fetchExamQuestions, fetchPoolMeta } from "./exam-client.js";
+import { APP_VERSION } from "./version.js";
 
 // 甲級學科測驗：60 單選（1 分）＋ 20 複選（2 分）＝ 100 分，60 分及格
 const PASS_SCORE = 60;
@@ -21,7 +22,6 @@ const DEFAULT_GOAL = 10;
 
 const STORAGE_KEY = "oshManagerQuizProgress_v1";
 const SESSION_STORAGE_KEY = "oshManagerQuizSession_v2";
-const APP_VERSION = "20260704s";
 
 // 每個階段的「最短停留時間」（毫秒）。實際停留＝語音播完 與 此值 取較長者，
 // 確保即使語音很快結束或不支援，畫面也會停留夠久讓使用者看清楚。
@@ -82,6 +82,8 @@ let recapResolve = null;
 let cloudSyncTimer = null;
 let cloudSyncPromise = null;
 let poolMeta = { poolTotal: null, remainCount: null };
+let lastVersionCheckAt = 0;
+let versionCheckBusy = false;
 
 function defaultState() {
   return {
@@ -101,7 +103,7 @@ function touchStateUpdatedAt() {
 
 function renderVersionLine(extra = "") {
   const suffix = extra ? ` · ${extra}` : "";
-  el.appVersion.textContent = `目前版本：${APP_VERSION}${suffix}`;
+  el.appVersion.textContent = `目前版本：${APP_VERSION}${suffix} · 回到 App 自動更新`;
 }
 
 function scheduleCloudSync() {
@@ -269,8 +271,19 @@ function refreshToLatest() {
   ) {
     return;
   }
+  reloadAppForUpdate();
+}
+
+async function reloadAppForUpdate() {
   stopNarration();
   persistAll();
+  if (cloudSyncPromise) {
+    try {
+      await cloudSyncPromise;
+    } catch {
+      /* 忽略 */
+    }
+  }
   try {
     sessionStorage.clear();
   } catch {
@@ -280,6 +293,26 @@ function refreshToLatest() {
   url.searchParams.set("reload", String(Date.now()));
   url.hash = "";
   window.location.replace(url.toString());
+}
+
+async function checkForAppUpdate({ force = false } = {}) {
+  if (versionCheckBusy) return;
+  const now = Date.now();
+  if (!force && now - lastVersionCheckAt < 10_000) return;
+  lastVersionCheckAt = now;
+  versionCheckBusy = true;
+  try {
+    const res = await fetch(`./version.json?t=${now}`, { cache: "no-store" });
+    if (!res.ok) return;
+    const remote = await res.json();
+    if (remote.appVersion && remote.appVersion !== APP_VERSION) {
+      await reloadAppForUpdate();
+    }
+  } catch {
+    /* 離線或無法連線時略過 */
+  } finally {
+    versionCheckBusy = false;
+  }
 }
 
 function renderExamFormat() {
@@ -1091,8 +1124,16 @@ el.recapNextBtn.addEventListener("click", () => finishRecap("next"));
 el.recapSkipBtn.addEventListener("click", () => finishRecap("close"));
 
 window.addEventListener("pagehide", persistAll);
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) checkForAppUpdate({ force: true });
+});
+window.addEventListener("focus", () => checkForAppUpdate());
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") persistAll();
+  if (document.visibilityState === "hidden") {
+    persistAll();
+  } else if (document.visibilityState === "visible") {
+    checkForAppUpdate({ force: true });
+  }
 });
 
 async function bootApp() {

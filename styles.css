@@ -572,6 +572,8 @@ button {
   border: 2px solid var(--line);
   background: #eceff1;
   animation: recap-photo-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  display: flex;
+  justify-content: center;
 }
 
 .case-zoom-layer {
@@ -580,22 +582,27 @@ button {
   transform: scale(1);
   transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .case-image-frame {
   position: relative;
-  width: 100%;
-  max-height: 240px;
-  aspect-ratio: 400 / 240;
-  margin: 0 auto;
+  max-width: 100%;
   line-height: 0;
+}
+
+.hotspot-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 .case-photo {
   display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  max-width: 100%;
+  max-height: 240px;
 }
 
 .hotspot-box {

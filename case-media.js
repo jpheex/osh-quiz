@@ -20,9 +20,12 @@ const TOPIC_IMAGES = {
 };
 
 const KEYWORD_IMAGES = [
+  { kw: "缺氧", image: "assets/cases/confined.svg" },
+  { kw: "局限空間", image: "assets/cases/confined.svg" },
+  { kw: "氧氣濃度", image: "assets/cases/confined.svg" },
+  { kw: "19.5%", image: "assets/cases/confined.svg" },
   { kw: "八小時", image: "assets/cases/regulation.svg" },
   { kw: "二公尺", image: "assets/cases/fall.svg" },
-  { kw: "局限空間", image: "assets/cases/confined.svg" },
   { kw: "安全資料表", image: "assets/cases/chemical.svg" },
   { kw: "SDS", image: "assets/cases/chemical.svg" },
   { kw: "承攬", image: "assets/cases/site-work.svg" },
@@ -35,7 +38,6 @@ const KEYWORD_IMAGES = [
   { kw: "風險評估", image: "assets/cases/risk.svg" },
   { kw: "教育訓練", image: "assets/cases/training.svg" },
   { kw: "緊急應變", image: "assets/cases/emergency.svg" },
-  { kw: "缺氧", image: "assets/cases/confined.svg" },
   { kw: "吊掛", image: "assets/cases/crane.svg" },
   { kw: "中暑", image: "assets/cases/heat.svg" },
 ];
@@ -65,7 +67,9 @@ const IMAGE_HOTSPOTS = {
     { x: 14.5, y: 24.2, w: 13.5, h: 60, type: "good", label: "護罩（正確）", detail: "左側綠色護罩為正確防護，應保持裝設，不得為趕工任意拆除。" },
   ],
   "assets/cases/confined.svg": [
-    { x: 42, y: 11.7, w: 16, h: 71.7, type: "bad", label: "局限空間", detail: "進入局限空間前未檢測氧氣與有害氣體、未辦理許可，恐缺氧或中毒。" },
+    { x: 45, y: 9.2, w: 10, h: 15.8, type: "bad", label: "未許可即開口", detail: "人孔／槽體開口未辦理局限空間作業許可，未設監視人員與通風。" },
+    { x: 41.3, y: 22.9, w: 17.5, h: 62.5, type: "bad", label: "缺氧環境", detail: "槽內氧氣可能不足或累積有害氣體，未檢測即進入恐窒息或中毒。" },
+    { x: 62, y: 72.9, w: 35, h: 16.7, type: "bad", label: "未檢測氣體", detail: "作業前後皆須檢測氧氣與有害氣體濃度，低於 19.5% 不得進入。" },
   ],
   "assets/cases/noise.svg": [
     { x: 36.3, y: 45, w: 27.5, h: 35.4, type: "bad", label: "高噪音暴露", detail: "長期暴露於高噪音卻未配戴防音防護具，導致聽力損失。" },

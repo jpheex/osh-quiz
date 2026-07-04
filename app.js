@@ -570,7 +570,22 @@ function syncCaseImageFrame(wrap) {
   const img = wrap?.querySelector(".case-photo");
   const frame = wrap?.querySelector(".case-image-frame");
   if (!img || !frame || !img.naturalWidth) return;
-  frame.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+
+  const maxH = 240;
+  const natRatio = img.naturalWidth / img.naturalHeight;
+  const wrapW = wrap.clientWidth || 360;
+
+  let w = wrapW;
+  let h = w / natRatio;
+  if (h > maxH) {
+    h = maxH;
+    w = h * natRatio;
+  }
+
+  frame.style.width = `${w}px`;
+  frame.style.height = `${h}px`;
+  img.style.width = `${w}px`;
+  img.style.height = `${h}px`;
 }
 
 function renderRecapCaseSlide(q, caseItem, index, total) {
@@ -599,7 +614,7 @@ function renderRecapCaseSlide(q, caseItem, index, total) {
           <div class="case-zoom-layer">
             <div class="case-image-frame">
               <img class="case-photo" src="${caseItem.image}" alt="職業災害案例照片" loading="eager" />
-              ${boxes}
+              <div class="hotspot-layer">${boxes}</div>
             </div>
           </div>
           <span class="case-badge">案例 ${index + 1} / ${total}</span>

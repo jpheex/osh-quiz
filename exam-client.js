@@ -2,11 +2,11 @@ import {
   ensureQuestionBank,
   poolStats,
   sampleQuestions,
-} from "./lib/exam-engine.js";
+} from "./exam-engine.js";
 
 const API_EXAM_START = "/api/exam/start";
 const API_META = "/api/meta";
-const BUNDLE_URL = "./data/questions-bundle.json?v=20260704q";
+const BUNDLE_URL = "./data/questions-bundle.json?v=20260704r";
 
 let cachedAll = null;
 
@@ -50,7 +50,7 @@ async function fetchLocalMeta(usedQuestionIds = []) {
   const stats = poolStats(all, new Set(usedQuestionIds.map(String)));
   return {
     ...stats,
-    contentVersion: "20260704q",
+    contentVersion: "20260704r",
     mcCount: all.filter((q) => q.kind === "mc").length,
     msCount: all.filter((q) => q.kind === "ms").length,
     mode: "local",
@@ -63,6 +63,7 @@ export async function fetchExamQuestions(usedQuestionIds = []) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ usedQuestionIds }),
+      signal: AbortSignal.timeout(12000),
     });
     if (res.ok) {
       const data = await res.json();
@@ -79,7 +80,9 @@ export async function fetchExamQuestions(usedQuestionIds = []) {
 export async function fetchPoolMeta(usedQuestionIds = []) {
   try {
     const qs = encodeURIComponent(JSON.stringify(usedQuestionIds));
-    const res = await fetch(`${API_META}?usedIds=${qs}`);
+    const res = await fetch(`${API_META}?usedIds=${qs}`, {
+      signal: AbortSignal.timeout(8000),
+    });
     if (res.ok) {
       const data = await res.json();
       return { ...data, mode: "cloud" };

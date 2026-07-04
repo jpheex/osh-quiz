@@ -1,5 +1,6 @@
 const USER_ID_KEY = "oshQuizUserId_v1";
 const API_PATH = "/api/sync";
+const REQUEST_TIMEOUT_MS = 8000;
 
 export function getUserId() {
   try {
@@ -27,6 +28,7 @@ async function request(method, { userId, progress, session, appVersion } = {}) {
   const init = {
     method,
     headers: { "content-type": "application/json" },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   };
 
   if (method === "PUT") {

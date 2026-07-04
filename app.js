@@ -1,4 +1,4 @@
-import { isNarrationSupported, stopNarration, speakText, speakCaseIntro, primeNarration } from "./narration.js?v=20260704q";
+import { isNarrationSupported, stopNarration, speakText, speakCaseIntro, primeNarration } from "./narration.js";
 import {
   formatUserId,
   getUserId,
@@ -6,8 +6,8 @@ import {
   pullFromCloud,
   pushToCloud,
   resetCloud,
-} from "./sync-client.js?v=20260704q";
-import { fetchExamQuestions, fetchPoolMeta } from "./exam-client.js?v=20260704q";
+} from "./sync-client.js";
+import { fetchExamQuestions, fetchPoolMeta } from "./exam-client.js";
 
 // 甲級學科測驗：60 單選（1 分）＋ 20 複選（2 分）＝ 100 分，60 分及格
 const PASS_SCORE = 60;
@@ -21,7 +21,7 @@ const DEFAULT_GOAL = 10;
 
 const STORAGE_KEY = "oshManagerQuizProgress_v1";
 const SESSION_STORAGE_KEY = "oshManagerQuizSession_v2";
-const APP_VERSION = "20260704q";
+const APP_VERSION = "20260704r";
 
 // 每個階段的「最短停留時間」（毫秒）。實際停留＝語音播完 與 此值 取較長者，
 // 確保即使語音很快結束或不支援，畫面也會停留夠久讓使用者看清楚。
@@ -50,8 +50,6 @@ const el = {
   resetBtn: document.querySelector("#resetBtn"),
   refreshBtn: document.querySelector("#refreshBtn"),
   appVersion: document.querySelector("#appVersion"),
-  syncStatus: document.querySelector("#syncStatus"),
-  syncUserId: document.querySelector("#syncUserId"),
   roundLabel: document.querySelector("#roundLabel"),
   questionMeta: document.querySelector("#questionMeta"),
   liveCorrect: document.querySelector("#liveCorrect"),
@@ -101,13 +99,10 @@ function touchStateUpdatedAt() {
   state.updatedAt = new Date().toISOString();
 }
 
-function updateSyncUI(statusText, detailText) {
-  if (el.syncStatus) el.syncStatus.textContent = statusText;
-  if (el.syncUserId) el.syncUserId.textContent = detailText || `同步 ID：${formatUserId(getUserId())}`;
+function renderVersionLine(extra = "") {
+  const suffix = extra ? ` · ${extra}` : "";
+  el.appVersion.textContent = `目前版本：${APP_VERSION}${suffix}`;
 }
-
-el.appVersion.textContent = `目前版本：${APP_VERSION}`;
-updateSyncUI("連線 D1 中…", `同步 ID：${formatUserId(getUserId())}`);
 
 function scheduleCloudSync() {
   if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
@@ -120,20 +115,18 @@ function scheduleCloudSync() {
 
 async function syncToCloud() {
   try {
-    updateSyncUI("同步中…");
     await pushToCloud({
       progress: state,
       session: session ? { ...session, recapOpen: false } : null,
       appVersion: APP_VERSION,
     });
-    updateSyncUI("已同步至 D1", `同步 ID：${formatUserId(getUserId())}`);
+    renderVersionLine(`雲端已同步 · ID ${formatUserId(getUserId())}`);
   } catch {
-    updateSyncUI("離線模式（本機暫存）", `同步 ID：${formatUserId(getUserId())}`);
+    renderVersionLine("本機暫存");
   }
 }
 
 async function initCloudSync() {
-  updateSyncUI("連線 D1 中…", `同步 ID：${formatUserId(getUserId())}`);
   try {
     const remote = await pullFromCloud();
     state = mergeProgress(state, remote.progress);
@@ -152,9 +145,9 @@ async function initCloudSync() {
         appVersion: APP_VERSION,
       });
     }
-    updateSyncUI("已同步至 D1", `同步 ID：${formatUserId(getUserId())}`);
+    renderVersionLine(`雲端已同步 · ID ${formatUserId(getUserId())}`);
   } catch {
-    updateSyncUI("離線模式（本機暫存）", `同步 ID：${formatUserId(getUserId())}`);
+    renderVersionLine("本機暫存");
   }
 }
 
@@ -227,9 +220,6 @@ function persistAll() {
 async function refreshPoolMeta() {
   try {
     poolMeta = await fetchPoolMeta(state.usedQuestionIds || []);
-    if (poolMeta.mode === "local") {
-      updateSyncUI("離線模式（本機暫存）", `題庫 ${poolMeta.poolTotal ?? "—"} 題｜同步 ID：${formatUserId(getUserId())}`);
-    }
   } catch {
     poolMeta = { poolTotal: null, remainCount: null };
   }
@@ -296,19 +286,17 @@ function renderExamFormat() {
   const msScore = MS_COUNT * MS_POINTS;
   const mcScore = MC_COUNT * MC_POINTS;
   el.examFormat.innerHTML = `
-    <h3 class="exam-format-title">本輪題型配額（對齊 22000 甲安學科）</h3>
+    <h3 class="exam-format-title">本輪題型配額（固定，與官方學科相同）</h3>
     <ul class="exam-format-list">
-      <li><strong>共同科目 90006～90009</strong>｜16 題（各 3 單選 + 1 複選）｜16 分</li>
-      <li><strong>專業科目 22000</strong>｜64 題（48 單選 + 16 複選）｜84 分</li>
-      <li><strong>單選 ${MC_COUNT} 題</strong>｜每題 ${MC_POINTS} 分｜小計 ${mcScore} 分</li>
-      <li><strong>複選 ${MS_COUNT} 題</strong>｜每題 ${MS_POINTS} 分（須全對）｜小計 ${msScore} 分</li>
+      <li><strong>單選 ${MC_COUNT} 題</strong>｜第 1～${MC_COUNT} 題｜每題 ${MC_POINTS} 分｜小計 ${mcScore} 分（${mcScore}%）</li>
+      <li><strong>複選 ${MS_COUNT} 題</strong>｜第 ${MC_COUNT + 1}～${TOTAL_QUESTIONS} 題｜每題 ${MS_POINTS} 分（須全對）｜小計 ${msScore} 分（${msScore}%）</li>
     </ul>
-    <p class="hint exam-format-note">命題依據：勞動部技能檢定中心題庫（22000 甲安、90006～90009 共同科目）。115 年修法／新增法令及重大職災衍生法令加強出題。每輪向伺服器抽 80 題，已出題 ID 記錄於 D1／本機。</p>
+    <p class="hint exam-format-note">含共同科目 90006～90009（16 題）與 22000 甲安專業（64 題）。115 年修法／職災衍生法令加強出題。複選占<strong>題數 ${Math.round((MS_COUNT / TOTAL_QUESTIONS) * 100)}%</strong>、占<strong>分數 ${msScore}%</strong>。</p>
   `;
 }
 
 function renderDashboard() {
-  el.appVersion.textContent = `目前版本：${APP_VERSION}`;
+  renderVersionLine();
   el.goalCount.textContent = String(state.goalPasses);
   el.passCount.textContent = String(state.passCount);
   el.attemptCount.textContent = String(state.attemptCount);
@@ -1093,17 +1081,23 @@ document.addEventListener("visibilitychange", () => {
 });
 
 async function bootApp() {
-  await initCloudSync();
-  await refreshPoolMeta();
   renderDashboard();
   const saved = session || loadSavedSession();
   if (saved) {
     session = saved;
     showPanel("quiz");
     renderQuestion();
-    return;
+  } else {
+    showPanel("dashboard");
   }
-  showPanel("dashboard");
+
+  try {
+    await initCloudSync();
+    await refreshPoolMeta();
+  } catch {
+    /* 背景同步失敗不阻擋 UI */
+  }
+  renderDashboard();
 }
 
 bootApp();

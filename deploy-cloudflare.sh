@@ -90,10 +90,13 @@ rsync -a \
   --exclude='deploy-cloudflare.sh' \
   --exclude='deploy.sh' \
   --exclude='serve.py' \
-  --exclude='questions*.js' \
-  --exclude='cases.js' \
-  --exclude='sources.js' \
-  --exclude='case-photo-manifest.js' \
+  --exclude='questions.js' \
+  --exclude='questions-multiselect.js' \
+  --exclude='questions-numeric.js' \
+  --exclude='questions-law2026-extra.js' \
+  --exclude='questions-disaster2026.js' \
+  --exclude='questions-common-subjects.js' \
+  --exclude='questions-disaster-law-derived.js' \
   "$ROOT/" "$DIST/"
 "$NPX" --yes wrangler pages deploy "$DIST" --project-name="$PROJECT_NAME" --commit-dirty=true
 rm -rf "$DIST"

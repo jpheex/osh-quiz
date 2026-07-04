@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>甲級職安管理師｜記憶強化練習</title>
+    <link rel="stylesheet" href="styles.css?v=20260704l" />
+    <script type="module" src="app.js?v=20260704l"></script>
+  </head>
+  <body>
+    <main class="app">
+      <header class="hero">
+        <p class="badge">職業安全衛生管理｜甲級</p>
+        <h1>記憶強化練習</h1>
+        <p class="sub">
+          依<strong>甲級學科測驗</strong>官方規格：80 題、100 分鐘、60 分及格。<br />
+          <strong>60 單選（60 分）＋ 20 複選（40 分）</strong>，複選固定占題數 25％、占分數 40％（與官方學科相同）。
+        </p>
+      </header>
+
+      <section id="dashboard" class="card">
+        <h2>練習進度</h2>
+        <div class="stats">
+          <div class="stat">
+            <span>目標及格次數</span>
+            <strong id="goalCount">10</strong>
+          </div>
+          <div class="stat">
+            <span>已完成及格</span>
+            <strong id="passCount">0</strong>
+          </div>
+          <div class="stat">
+            <span>累計測驗次數</span>
+            <strong id="attemptCount">0</strong>
+          </div>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div id="progressFill"></div></div>
+          <p id="progressText" class="hint">尚未開始練習</p>
+        </div>
+        <div id="examFormat" class="exam-format"></div>
+        <div id="history" class="history"></div>
+        <button id="startBtn" type="button" class="primary">開始新一輪學科測驗（80 題）</button>
+        <button id="resetBtn" type="button" class="secondary">重置全部進度</button>
+        <button id="refreshBtn" type="button" class="outline">讀取最新版（保留進度）</button>
+        <p id="appVersion" class="hint version-line">版本 —</p>
+      </section>
+
+      <section id="quizPanel" class="card hidden">
+        <div class="quiz-top">
+          <div>
+            <p class="round-label" id="roundLabel">第 1 次測驗</p>
+            <p class="hint" id="questionMeta">是非題 1 / 50</p>
+          </div>
+          <div class="score-live">
+            <span>目前得分</span>
+            <strong id="liveCorrect">0 / 100</strong>
+          </div>
+        </div>
+        <div class="progress-bar thin"><div id="questionProgress"></div></div>
+
+        <article class="question-box">
+          <p class="topic" id="questionTopic">法規</p>
+          <h3 id="questionText">題目內容</h3>
+          <div id="answerArea" class="answers"></div>
+          <div id="feedbackBox" class="feedback-box hidden"></div>
+        </article>
+
+        <div class="quiz-actions">
+          <button id="prevBtn" type="button" class="secondary">上一題</button>
+          <button id="nextBtn" type="button" class="primary">下一題</button>
+          <button id="submitBtn" type="button" class="primary hidden">交卷計分</button>
+        </div>
+      </section>
+
+      <section id="resultPanel" class="card hidden">
+        <h2 id="resultTitle">測驗結果</h2>
+        <p class="score-big" id="resultScore">0 分</p>
+        <p id="resultMessage" class="result-msg"></p>
+        <div id="reviewList" class="review-list"></div>
+        <button id="continueBtn" type="button" class="primary">返回進度板</button>
+      </section>
+    </main>
+
+    <div id="recapOverlay" class="recap-overlay hidden" aria-live="polite" aria-modal="true">
+      <div class="recap-card">
+        <div class="recap-header">
+          <span class="recap-badge">記憶強化過場</span>
+          <div class="recap-progress-bar"><div id="recapProgress"></div></div>
+        </div>
+        <div id="recapStage" class="recap-stage"></div>
+        <div class="recap-actions">
+          <button id="recapSkipBtn" type="button" class="secondary recap-skip">略過</button>
+          <div id="recapDoneActions" class="recap-done-actions hidden">
+            <button id="recapCloseBtn" type="button" class="secondary">關閉</button>
+            <button id="recapNextBtn" type="button" class="primary">下一步</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
